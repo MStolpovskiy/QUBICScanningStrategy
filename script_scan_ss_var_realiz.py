@@ -28,21 +28,12 @@ nside = 256
 racenter = 0.0
 deccenter = -46.0
 
-def run_ss(pointings_params, input_map):
+def run_ss(p_name, p_val, input_map):
     map_noI = copy(input_map)
     map_noI[:,0] *= 0
 
-    pointings = create_sweeping_pointings(
-        pointings_params['radec'], 24, pointings_params['ts'],
-        pointings_params['angspeed'], 
-        pointings_params['delta_az'],
-        pointings_params['nsweeps_el'],
-        pointings_params['angspeed_psi'],
-        pointings_params['maxpsi'], 
-        delta_el_corr=pointings_params['delta_el_corr'],
-        ss_az=pointings_params['az_s'], 
-        ss_el=pointings_params['el_s'], 
-        hwp_div=pointings_params['hwp'])
+    pointings = create_sweeping_pointings(parameter_to_change=p_name
+                                          value_of_parameter=p_val)
     print 'pointings created'
 
     # get the acquisition model = instrument model + pointing model
@@ -81,26 +72,6 @@ def RMS_of_map(cov, map, cov_min, cov_max):
 p_name = options.param
 p_val  = options.value
 print p_name, "=", p_val
-ts = float(p_val) if (p_name == "ts") else 0.05
-az_strategy =  p_val if (p_name == "az_strategy") else 'sss'
-angspeed = float(p_val) if (p_name == "angspeed") else 1.
-delta_az = float(p_val) if (p_name == "delta_az") else 30.
-angspeed_psi = float(p_val) if (p_name == "angspeed_psi") else 1.
-maxpsi = float(p_val) if (p_name == "maxpsi") else 15.
-nsweeps_el = int(p_val) if (p_name == "nsweeps_el") else 300
-delta_el_corr = 0. if (p_name == "delta_el_corr") else 0.
-hwp = int(p_val) if (p_name == "hwp") else 8
-pointings_params = {'radec': [racenter, deccenter],
-                    'ts': ts,
-                    'az_s': az_strategy,
-                    'el_s': 'el_enlarged1',
-                    'angspeed': angspeed,
-                    'delta_az': delta_az,
-                    'angspeed_psi': angspeed_psi,
-                    'maxpsi': maxpsi,
-                    'nsweeps_el': nsweeps_el,
-                    'delta_el_corr': delta_el_corr,
-                    'hwp': hwp}
 
 nrealizations = 1
 ItoQU = np.zeros((nrealizations, 4, 3))
@@ -112,7 +83,7 @@ for realization in xrange(nrealizations):
     np.random.seed(seed)
     spectra = read_spectra(0)
     input_map = np.array(hp.synfast(spectra, nside)).T
-    ItoQU_, Noise_, QUmix_, o, e = run_ss(pointings_params, input_map)
+    ItoQU_, Noise_, QUmix_, o, e = run_ss(p_name, p_val, input_map)
     ItoQU[realization] = ItoQU_
     Noise[realization] = Noise_
     QUmix[realization] = QUmix_
