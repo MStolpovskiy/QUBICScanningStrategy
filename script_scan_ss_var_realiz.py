@@ -32,7 +32,7 @@ def run_ss(p_name, p_val, input_map):
     map_noI = copy(input_map)
     map_noI[:,0] *= 0
 
-    pointings = create_sweeping_pointings(parameter_to_change=p_name
+    pointings = create_sweeping_pointings(parameter_to_change=p_name,
                                           value_of_parameter=p_val)
     print 'pointings created'
 
