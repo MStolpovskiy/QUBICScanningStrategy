@@ -3,7 +3,7 @@ do
     ((a = 0))
     while ((a < 1))
     do
-	qsub -v P='angspeed',V=$v scan.sh
+	qsub -v P='angspeed',V=$v oel.sh
 	((a += 1))
     done
 done

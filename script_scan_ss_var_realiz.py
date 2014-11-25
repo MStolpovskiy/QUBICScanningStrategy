@@ -42,6 +42,7 @@ def run_ss(p_name, p_val, input_map):
                                    kind='IQU',
                                    nside=nside)
     analysis = QubicAnalysis(acquisition, input_map, coverage_thr=0.2, tol=1e-3, pickable=False, noise=False)
+    coverage = analysis.coverage
     o = analysis.Omega()
     e = analysis.Eta()
     imap_nN = analysis.input_map_convolved
