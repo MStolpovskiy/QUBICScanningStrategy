@@ -1,5 +1,10 @@
 from __future__ import division
 
+import time
+import os
+time0 = float(os.environ['START_TIME'])
+time1 = time.time()
+
 import healpy as hp
 import numpy as np
 
@@ -12,6 +17,9 @@ from myqubic import (create_sweeping_pointings, QubicAnalysis)
 from cPickle import dump
 from copy import copy
 from optparse import OptionParser
+
+time2 = time.time()
+print(time1-time0, time2-time1)
 
 parser = OptionParser()
 parser.add_option("-p", "--param", dest="param", help="Chose name of a parameters to vary")
@@ -42,7 +50,6 @@ def run_ss(p_name, p_val, input_map):
                                    kind='IQU',
                                    nside=nside)
     analysis = QubicAnalysis(acquisition, input_map, coverage_thr=0.2, tol=1e-3, pickable=False, noise=False)
-    coverage = analysis.coverage
     o = analysis.Omega()
     e = analysis.Eta()
     imap_nN = analysis.input_map_convolved

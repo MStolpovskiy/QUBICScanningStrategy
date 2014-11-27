@@ -16,4 +16,6 @@ export OMP_NUM_THREADS=$((24 / NUM_TASKS_PER_NODE))
 cd $WD/ScanningStrategy
 rnum=$RANDOM
 
+export START_TIME=`date +%s.%N`
+
 aprun -n $NUM_TASKS -N $NUM_TASKS_PER_NODE -S $NUM_TASKS_PER_SOCKET -d $OMP_NUM_THREADS -cc depth python-mpi script_scan_ss_var_realiz.py -p $P -v $V -s $rnum
