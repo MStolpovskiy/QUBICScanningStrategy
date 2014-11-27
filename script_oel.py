@@ -11,19 +11,20 @@ from myqubic import (create_sweeping_pointings, QubicAnalysis)
 p_name = 'angspeed'
 p_vals = np.array([0.1, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2])
 
-nside = 256
+nside = 64
 racenter = 0.0
 deccenter = -46.0
 
 def oel(p_name, p_val, input_map):
     pointings = create_sweeping_pointings(parameter_to_change=p_name,
-                                          value_of_parameter=p_val)
+                                          value_of_parameter=p_val,
+                                          sampling_period=0.1)
     print 'pointings created'
 
     # get the acquisition model = instrument model + pointing model
     band = 150
     acquisition = QubicAcquisition(band, pointings,
-                                   kind='IQU',
+                                   kind='I',
                                    nside=nside)
     analysis = QubicAnalysis(acquisition,
                              input_map,
@@ -43,6 +44,7 @@ l = np.empty(npar)
 
 spectra = read_spectra(0)
 input_map = np.array(hp.synfast(spectra, nside)).T
+input_map = input_map[..., 0]
 for i, p_val in enumerate(p_vals):
     o[i], e[i], l[i] = oel(p_name, p_val, input_map)
 
