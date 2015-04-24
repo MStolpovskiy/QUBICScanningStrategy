@@ -145,6 +145,8 @@ def find_optimum(starting_point, tol=1., point_boundaries=None, step=None):
     previous_point = starting_point
     previous_c = criterium(oel(previous_point))
     current_point = previous_point + (np.random.random(numpar) * 2 - 1) * step
+    current_point[current_point < point_boundaries[:, 0]] = point_boundaries[:, 0][current_point < point_boundaries[:, 0]]
+    current_point[current_point > point_boundaries[:, 1]] = point_boundaries[:, 1][current_point > point_boundaries[:, 1]]
     current_c = criterium(oel(current_point))
     c_change = np.abs(previous_c - current_c)
     print '\tstarting point =', previous_point
