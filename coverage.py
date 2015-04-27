@@ -18,7 +18,7 @@ def oel(point, nside=256, verbose=False, ndet_for_omega_and_eta=50, ndet_for_lam
                                           nsweeps_per_elevation=int(point[2]),
                                           angspeed_psi=point[3],
                                           maxpsi=point[4],
-                                          sampling_period=0.05)
+                                          sampling_period=0.2)
     if verbose: print 'pointings created'
 
     band = 150
