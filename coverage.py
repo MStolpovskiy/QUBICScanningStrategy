@@ -26,7 +26,8 @@ def oel(point, nside=256, verbose=False, ndet_for_omega_and_eta=50, ndet_for_lam
                            kind='I',
                            nside=nside)
     fullfocalplane = int(len(acq.instrument) / 2)
-    randdet = (np.random.shuffle(np.arange(fullfocalplane)))[:ndet_for_omega_and_eta]
+    alldet = np.arange(fullfocalplane)
+    randdet = (np.random.shuffle(alldet))[:ndet_for_omega_and_eta]
     mask = np.zeros(fullfocalplane, dtype=bool)
     for i in xrange(fullfocalplane):
         if i in randdet: mask[i] = True
