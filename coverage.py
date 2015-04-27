@@ -9,7 +9,7 @@ from qubic import QubicAcquisition
 from pyoperators.memory import ones
 from copy import copy
 
-def oel(point, nside=256, verbose=False):
+def oel(point, nside=256, verbose=False, ndet_for_omega_and_eta=50, ndet_for_lambda=20):
     '''
     point - single point on the parameter space
     '''
@@ -25,7 +25,13 @@ def oel(point, nside=256, verbose=False):
     acq = QubicAcquisition(band, pointings,
                            kind='I',
                            nside=nside)
-    acq.instrument = acq.instrument[:len(acq.instrument)/8]
+    fullfocalplane = int(len(acq.instrument) / 2)
+    randdet = (np.random.shuffle(np.arange(fullfocalplane)))[:ndet_for_omega_and_eta]
+    mask = np.zeros(fullfocalplane, dtype=bool)
+    for i in xrange(fullfocalplane):
+        if i in randdet: mask[i] = True
+
+    acq.instrument = acq.instrument[mask]
 
     if verbose:
         print '-----------------------------------------------------------------------'
@@ -36,8 +42,9 @@ def oel(point, nside=256, verbose=False):
         print '| maxpsi = {}'.format(point[4])
         print '-----------------------------------------------------------------------'
 
-    coverage, single_detector_coverages = GetCoverageAndSDCoverages(acq)
+#    coverage, single_detector_coverages = GetCoverageAndSDCoverages(acq)
     coverage = GetCoverage(acq)
+    single_detector_coverages = GetSDCoverages(acq, ndet_for_lambda)
     o = Omega(coverage)
     e = eta(coverage)
     l = overlap(single_detector_coverages)
@@ -91,6 +98,18 @@ def GetCoverageAndSDCoverages(acq):
         coverage += odc
         single_detector_coverages.append(odc)
     return coverage, single_detector_coverages
+
+def GetSDCoverages(acq, ndet=None):
+    single_detector_coverages = []
+    if ndet == None:
+        for idet in xrange(len(acq.instrument)):
+            odc = OneDetCoverage(acq, idet)
+            single_detector_coverages.append(odc)
+        return single_detector_coverages
+    for idet in (np.random.random(ndet) * len(acq.instrument)).astype(int):
+        odc = OneDetCoverage(acq, idet)
+        single_detector_coverages.append(odc)
+    return single_detector_coverages
 
 def GetCoverage(acq):
     H = acq.get_operator()
