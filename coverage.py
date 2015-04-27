@@ -27,7 +27,7 @@ def oel(point, nside=256, verbose=False, ndet_for_omega_and_eta=50, ndet_for_lam
                            nside=nside)
     fullfocalplane = int(len(acq.instrument) / 2)
     alldet = np.arange(fullfocalplane)
-    alldet = np.random.shuffle(alldet))
+    alldet = np.random.shuffle(alldet)
     randdet = alldet[:ndet_for_omega_and_eta]
     mask = np.zeros(fullfocalplane, dtype=bool)
     for i in xrange(fullfocalplane):
