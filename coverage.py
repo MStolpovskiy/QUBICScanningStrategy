@@ -26,8 +26,8 @@ class color:
 def oel(point,
         nside=256,
         verbose=False,
-        ndet_for_omega_and_eta=5,#50,
-        ndet_for_lambda=5#10
+        ndet_for_omega_and_eta=50,
+        ndet_for_lambda=10
         ):
     '''
     point - single point on the parameter space
@@ -123,10 +123,19 @@ def OneDetCoverage(acq, detnum, verbose=False):
     return coverage
 
 def GetCoverageAndSDCoverages(acq, verbose=False):
+    rank = MPI.COMM_WORLD.rank
+    size = MPI.COMM_WORLD.size
+    if verbose:
+        print 'I am = {}/{}'.format(rank, size)
+    do_parallel = False
+    if size >= ndet: do_parallel = True
     coverage = np.zeros(hp.nside2npix(acq.scene.nside))
     single_detector_coverages = []
     for detnum in xrange(len(acq.instrument)):
-        odc = OneDetCoverage(acq, detnum, verbose=verbose)
+        if do_parallel and rank == idet:
+            odc = OneDetCoverage(acq, detnum, verbose=verbose)
+        if not do_parallel:
+            odc = OneDetCoverage(acq, detnum, verbose=verbose)
         coverage += odc
         single_detector_coverages.append(odc)
     return coverage, single_detector_coverages
@@ -135,7 +144,8 @@ def GetSDCoverages(acq, ndet=None, verbose=False):
     single_detector_coverages = []
     rank = MPI.COMM_WORLD.rank
     size = MPI.COMM_WORLD.size
-    print 'I am = {}/{}'.format(rank, size)
+    if verbose:
+        print 'I am = {}/{}'.format(rank, size)
     do_parallel = False
     if size >= ndet: do_parallel = True
     if ndet == None:
