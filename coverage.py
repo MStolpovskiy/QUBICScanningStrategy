@@ -27,20 +27,44 @@ def oel(point,
         nside=256,
         verbose=False,
         ndet_for_omega_and_eta=50,
-        ndet_for_lambda=10
+        ndet_for_lambda=10,
+        debug=False
         ):
     '''
     point - single point on the parameter space
     '''
+    rank = MPI.COMM_WORLD.rank
+    size = MPI.COMM_WORLD.size
+    if debug:
+        verbose = True
+        ndet_for_omega_and_eta = 1
+        ndet_for_lambda = 1
+        if size > 1:
+            ndet_for_omega_and_eta = 2
+            ndet_for_lambda = 2
+    if verbose:
+        print 'I am = {}/{}'.format(rank, size)
+
     if ndet_for_lambda > ndet_for_omega_and_eta:
         ndet_for_lambda = ndet_for_omega_and_eta
-    pointings = create_sweeping_pointings(angspeed=point[0],
-                                          delta_az=point[1],
-#                                          nsweeps_per_elevation=int(point[2]),
-                                          nsweeps_per_elevation=int(point[2] / 0.00000001),
-                                          angspeed_psi=point[3],
-                                          maxpsi=point[4],
-                                          sampling_period=0.1)
+    ts = 0.1 if not debug else 1.
+    
+    point_boundaries = np.empty((2, 2))
+    point_boundaries[0] = np.array([0.1, 3]) # angspeed
+    point_boundaries[1] = np.array([20, 50]) # delta_az
+    ## point_boundaries[2] = np.array([100, 500]) # nsweeps_per_elevation
+    ## point_boundaries[3] = np.array([0, 2]) # angspeed_psi
+    ## point_boundaries[4] = np.array([0, 15]) # maxpsi
+
+    # points are rescaled for range (0. - 1.) * scale
+    scale = 1e-7
+    point_descaled = point / scale * (point_boundaries[:, 1] - point_boundaries[:, 0]) + point_boundaries[:, 0]
+    pointings = create_sweeping_pointings(angspeed=point_descaled[0],
+                                          delta_az=point_descaled[1],
+#                                          nsweeps_per_elevation=int(point_descaled[2]),
+#                                          angspeed_psi=point_descaled[3],
+#                                          maxpsi=point_descaled[4],
+                                          sampling_period=ts)
     pointings = pointings[mask_pointing(pointings)]
 
     band = 150
@@ -49,7 +73,7 @@ def oel(point,
                            nside=nside)
     fullfocalplane = int(len(acq.instrument) / 2)
     alldet = np.arange(fullfocalplane)
-    np.random.shuffle(alldet)
+    if not debug: np.random.shuffle(alldet)
     randdet = alldet[:ndet_for_omega_and_eta]
     mask = np.zeros(fullfocalplane * 2, dtype=bool)
     for i in xrange(fullfocalplane):
@@ -59,18 +83,18 @@ def oel(point,
     
     if verbose:
         print '-----------------------------------------------------------------------'
-        print '| angspeed = {}'.format(point[0])
-        print '| delta_az = {}'.format(point[1])
-        print '| nsweeps_per_elevation = {}'.format(point[2])
-        print '| angspeed_psi = {}'.format(point[3])
-        print '| maxpsi = {}'.format(point[4])
+        print '| angspeed = {}'.format(point_descaled[0])
+        print '| delta_az = {}'.format(point_descaled[1])
+        ## print '| nsweeps_per_elevation = {}'.format(point_descaled[2])
+        ## print '| angspeed_psi = {}'.format(point_descaled[3])
+        ## print '| maxpsi = {}'.format(point_descaled[4])
         print '-----------------------------------------------------------------------'
-
+        
     coverage, single_detector_coverages = GetCoverageAndSDCoverages(acq)
 #    coverage = GetCoverage(acq)
 #    single_detector_coverages = GetSDCoverages(acq, ndet_for_lambda, verbose=verbose)
     if ndet_for_lambda < ndet_for_omega_and_eta:
-        np.random.shuffle(single_detector_coverages)
+        if not debug: np.random.shuffle(single_detector_coverages)
         single_detector_coverages = single_detector_coverages[:ndet_for_lambda]
     cov_thr = 0.2
     o = Omega(coverage, cov_thr=cov_thr)
@@ -81,7 +105,12 @@ def oel(point,
         print 'Omega = {}'.format(o)
         print 'eta = {}'.format(e)
         print 'lambda = {}'.format(l)
-        
+
+    if debug:
+        with open('oel.log', 'a') as f:
+            f.write('{}\n'.format(point_descaled[0]))
+            f.write('{}\n'.format(point_descaled[1]))
+                    
     return o, e, l
 
 def Omega(coverage, cov_thr=0.2):
@@ -128,16 +157,18 @@ def GetCoverageAndSDCoverages(acq, verbose=False):
     if verbose:
         print 'I am = {}/{}'.format(rank, size)
     do_parallel = False
-    if size >= ndet: do_parallel = True
+    if size >= len(acq.instrument): do_parallel = True
     coverage = np.zeros(hp.nside2npix(acq.scene.nside))
     single_detector_coverages = []
     for detnum in xrange(len(acq.instrument)):
-        if do_parallel and rank == idet:
+        if do_parallel and rank == detnum:
             odc = OneDetCoverage(acq, detnum, verbose=verbose)
+            coverage += odc
+            single_detector_coverages.append(odc)
         if not do_parallel:
             odc = OneDetCoverage(acq, detnum, verbose=verbose)
-        coverage += odc
-        single_detector_coverages.append(odc)
+            coverage += odc
+            single_detector_coverages.append(odc)
     return coverage, single_detector_coverages
 
 def GetSDCoverages(acq, ndet=None, verbose=False):
@@ -176,7 +207,7 @@ def GetCoverage(acq):
 #    return omega * overlap / eta
 
 def criterium(point):
-    o, e, l = oel(point, verbose=True)
+    o, e, l = oel(point, verbose=True, debug=True)
 #    o, e = oel(point, verbose=True, ndet_for_omega_and_eta=1, ndet_for_lambda=1)
     c = e / o / l
     print color.BOLD + 'criterium =', c, color.END
@@ -195,7 +226,7 @@ def get_new_point(current_point, previous_point, current_c, previous_c, point_bo
     rand_point[rand_point < point_boundaries[:, 0]] = point_boundaries[:, 0][rand_point < point_boundaries[:, 0]]
     rand_point[rand_point > point_boundaries[:, 1]] = point_boundaries[:, 1][rand_point > point_boundaries[:, 1]]
     print 'random_point =', rand_point 
-    rand_c = criterium(oel(rand_point)) # criterium value at the rand_point
+    rand_c = criterium(rand_point) # criterium value at the rand_point
     print 'random criterium =', rand_c
     rand_grad = grad(rand_point, current_point, rand_c, current_c)
     
@@ -203,7 +234,7 @@ def get_new_point(current_point, previous_point, current_c, previous_c, point_bo
     next_point = current_point + grad_to_next / np.sqrt(np.sum(grad_to_next**2)) * step
     next_point[next_point < point_boundaries[:, 0]] = point_boundaries[:, 0][next_point < point_boundaries[:, 0]]
     next_point[next_point > point_boundaries[:, 1]] = point_boundaries[:, 1][next_point > point_boundaries[:, 1]]
-    next_c = criterium(oel(next_point))
+    next_c = criterium(next_point)
 
     return next_point, next_c, rand_point, rand_c
 
@@ -213,26 +244,26 @@ def grad(point_1, point_2, c_1, c_2):
         grad[i] = (c_1 - c_2) / (p1 - p2) if p1 != p2 else 0.
     return grad
 
-def find_optimum(starting_point, tol=5., point_boundaries=None, step=None):
+def find_optimum(starting_point, tol=0.1, point_boundaries=None, step=None):
     numpar = len(starting_point)
     if point_boundaries == None:
         point_boundaries = np.empty((numpar, 2))
         point_boundaries[0] = np.array([0.1, 5]) # angspeed
         point_boundaries[1] = np.array([10, 50]) # delta_az
-        point_boundaries[2] = np.array([100, 500]) # nsweeps_per_elevation
-        point_boundaries[3] = np.array([0, 2]) # angspeed_psi
-        point_boundaries[4] = np.array([0, 20]) # maxpsi
+#        point_boundaries[2] = np.array([100, 500]) # nsweeps_per_elevation
+#        point_boundaries[3] = np.array([0, 2]) # angspeed_psi
+#        point_boundaries[4] = np.array([0, 20]) # maxpsi
     if step == None:
         prim_step = np.array((point_boundaries[:, 1] - point_boundaries[:, 0]) * 0.3)
         step = copy(prim_step)
     else:
         prim_step = copy(step)
     previous_point = starting_point
-    previous_c = criterium(oel(previous_point))
+    previous_c = criterium(previous_point)
     current_point = previous_point + (np.random.random(numpar) * 2 - 1) * step
     current_point[current_point < point_boundaries[:, 0]] = point_boundaries[:, 0][current_point < point_boundaries[:, 0]]
     current_point[current_point > point_boundaries[:, 1]] = point_boundaries[:, 1][current_point > point_boundaries[:, 1]]
-    current_c = criterium(oel(current_point))
+    current_c = criterium(current_point)
     c_change = np.abs(previous_c - current_c)
     print '\tstarting point =', previous_point
     print '\tstarting criterium =', previous_c
