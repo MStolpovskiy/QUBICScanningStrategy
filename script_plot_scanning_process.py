@@ -1,12 +1,12 @@
-import matplotlib.pyplot as mp
-from mpl_toolkits.mplot3d import Axes3D
+#import matplotlib.pyplot as mp
+#from mpl_toolkits.mplot3d import Axes3D
 import healpy as hp
 import numpy as np
 from coverage import *
 from scipy.optimize import minimize
 import pyfits as pf
 from glob import glob
-from matplotlib import cm
+#from matplotlib import cm
 import os
 from pyoperators import MPI
 
@@ -74,17 +74,17 @@ if rank == 0:
     a = np.array(lines[::2]).astype(float)
     d = np.array(lines[1::2]).astype(float)
 
-    # ploting
-    fig = mp.figure()
-    #ax = fig.gca(projection='3d')
-    #ax.plot_trisurf(angspeeds, delta_azs, criteria, cmap=cm.jet, linewidth=0.2)
-    X, Y = np.meshgrid(angspeeds, delta_azs)
-    #ax.plot_surface(X, Y, criteria.T, rstride=1, cstride=1, cmap=cm.jet, #coolwarm,
-    #        linewidth=0, antialiased=False)
-    mp.contour(X, Y, np.log(criteria.T))
-    #Axes3D
-    mp.plot(a, d, color='r')
-    mp.plot(a[0], d[0], marker='o', color='r')
-    mp.plot(a[-1], d[-1], marker='o', color='b')
+    ## # ploting
+    ## fig = mp.figure()
+    ## #ax = fig.gca(projection='3d')
+    ## #ax.plot_trisurf(angspeeds, delta_azs, criteria, cmap=cm.jet, linewidth=0.2)
+    ## X, Y = np.meshgrid(angspeeds, delta_azs)
+    ## #ax.plot_surface(X, Y, criteria.T, rstride=1, cstride=1, cmap=cm.jet, #coolwarm,
+    ## #        linewidth=0, antialiased=False)
+    ## mp.contour(X, Y, np.log(criteria.T))
+    ## #Axes3D
+    ## mp.plot(a, d, color='r')
+    ## mp.plot(a[0], d[0], marker='o', color='r')
+    ## mp.plot(a[-1], d[-1], marker='o', color='b')
 
-    mp.show()
+    ## mp.show()

@@ -37,13 +37,13 @@ def oel(point,
     size = MPI.COMM_WORLD.size
     if debug:
         verbose = True
-        ndet_for_omega_and_eta = 1
-        ndet_for_lambda = 1
-        if size > 1:
-            ndet_for_omega_and_eta = 2
-            ndet_for_lambda = 2
-    if verbose:
-        print 'I am = {}/{}'.format(rank, size)
+#        ndet_for_omega_and_eta = 1
+#        ndet_for_lambda = 1
+#        if size > 1:
+#            ndet_for_omega_and_eta = 2
+#            ndet_for_lambda = 2
+#    if verbose:
+#        print 'I am = {}/{}'.format(rank, size)
 
     if ndet_for_lambda > ndet_for_omega_and_eta:
         ndet_for_lambda = ndet_for_omega_and_eta
@@ -96,10 +96,9 @@ def oel(point,
     if ndet_for_lambda < ndet_for_omega_and_eta:
         if not debug: np.random.shuffle(single_detector_coverages)
         single_detector_coverages = single_detector_coverages[:ndet_for_lambda]
-    cov_thr = 0.2
-    o = Omega(coverage, cov_thr=cov_thr)
-    e = eta(coverage, cov_thr=cov_thr)
-    l = overlap(single_detector_coverages, cov_thr=cov_thr)
+    o = Omega(coverage)
+    e = eta(coverage)
+    l = overlap(single_detector_coverages)
 
     if verbose:
         print 'Omega = {}'.format(o)
@@ -123,7 +122,7 @@ def eta(coverage, cov_thr=0.2):
     return (normalized_coverage(coverage, cov_thr).sum() / 
             (normalized_coverage(coverage, cov_thr)**2).sum())
 
-def overlap(single_detector_coverages, cov_thr=0.2):
+def overlap(single_detector_coverages, cov_thr=0.0):
     nside = hp.npix2nside(len(single_detector_coverages[0]))
     ndet = len(single_detector_coverages)
     c_sum = np.zeros(len(single_detector_coverages[0]))
@@ -139,16 +138,19 @@ def overlap(single_detector_coverages, cov_thr=0.2):
 
 def normalized_coverage(coverage, cov_thr=0.2):
     c = coverage / coverage.max()
-    c[c < 0.2] = 0.
+    c[c < cov_thr] = 0.
     return c
 
-def OneDetCoverage(acq, detnum, verbose=False):
+def OneDetCoverage(acq, detnum, convolution=True, verbose=False):
 #    if verbose: print 'detnum =', detnum
     acq_ = copy(acq)
     acq_.instrument = acq_.instrument[detnum]
     H = acq_.get_operator()
     coverage = H.T(ones(H.shapeout))
     coverage[coverage < 0.] = 0.
+    if convolution:
+        convolution = acq_.get_convolution_peak_operator()
+        coverage = convolution(coverage)
     return coverage
 
 def GetCoverageAndSDCoverages(acq, verbose=False):
