@@ -27,12 +27,12 @@ omegas = np.empty((len(angspeeds), len(delta_azs)))
 etas = np.empty((len(angspeeds), len(delta_azs)))
 lambdas = np.empty((len(angspeeds), len(delta_azs)))
 
-file_name = '_on_angspeed_delta_az_plane_debug_mpi{}.fits'.format(size)
+file_name = '_on_angspeed_delta_az_plane.fits'
 if len(glob('*' + file_name)) == 0:
-    for i, angspeed in enumerate(angspeed):
+    for i, angspeed in enumerate(angspeeds):
         for j, delta_az in enumerate(delta_azs):
             point = np.array([angspeed, delta_az])
-            print 'Point -', point
+            if rank == 0: print 'Point -', point
             o, e, l = oel(point, ndet_for_omega_and_eta=10)
             omegas[i, j] = o
             etas[i, j] = e
@@ -77,7 +77,7 @@ methods = ['Nelder-Mead', # 0 found bad minimum
            'my' # 12
            ]
 method = methods[8]
-file_name = 'minimization_steps_{}_mpi{}.log'.format(method, size)
+file_name = 'minimization_steps_{}.log'.format(method)
 if len(glob(file_name)) == 0:
     if len(glob('oel.log')) != 0:
         if rank == 0:

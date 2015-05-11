@@ -92,7 +92,7 @@ def oel(point,
         ## print '| maxpsi = {}'.format(point_descaled[4])
         print '-----------------------------------------------------------------------'
         
-    single_detector_coverages = GetSDCoverages(acq)
+    single_detector_coverages = np.array(GetSDCoverages(acq))
     coverage = single_detector_coverages.sum(axis=0)
 #    coverage = GetCoverage(acq)
 #    single_detector_coverages = GetSDCoverages(acq, ndet_for_lambda, verbose=verbose)
@@ -176,7 +176,7 @@ def GetSDCoverages(acq, ndet=None, verbose=False):
     if verbose:
         print 'I am = {}/{}'.format(rank, size)
     do_parallel = False
-    if size >= ndet: do_parallel = True
+    if size >= ndet and ndet != None: do_parallel = True
     if ndet == None:
         for idet in xrange(len(acq.instrument)):
             if do_parallel and rank == idet:
