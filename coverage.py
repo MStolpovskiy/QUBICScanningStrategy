@@ -8,7 +8,7 @@ from myqubic import (create_sweeping_pointings, mask_pointing)
 from qubic import QubicAcquisition
 from pyoperators.memory import ones
 from copy import copy
-
+from scipy.stats import gmean
 from pyoperators import MPI
 
 class color:
@@ -73,7 +73,9 @@ def oel(point,
                            nside=nside)
     fullfocalplane = int(len(acq.instrument) / 2)
     alldet = np.arange(fullfocalplane)
-    if not debug: np.random.shuffle(alldet)
+    if not debug:
+        np.random.seed(0)
+        np.random.shuffle(alldet)
     randdet = alldet[:ndet_for_omega_and_eta]
     mask = np.zeros(fullfocalplane * 2, dtype=bool)
     for i in xrange(fullfocalplane):
@@ -90,7 +92,8 @@ def oel(point,
         ## print '| maxpsi = {}'.format(point_descaled[4])
         print '-----------------------------------------------------------------------'
         
-    coverage, single_detector_coverages = GetCoverageAndSDCoverages(acq)
+    single_detector_coverages = GetSDCoverages(acq)
+    coverage = single_detector_coverages.sum(axis=0)
 #    coverage = GetCoverage(acq)
 #    single_detector_coverages = GetSDCoverages(acq, ndet_for_lambda, verbose=verbose)
     if ndet_for_lambda < ndet_for_omega_and_eta:
@@ -123,17 +126,10 @@ def eta(coverage, cov_thr=0.2):
             (normalized_coverage(coverage, cov_thr)**2).sum())
 
 def overlap(single_detector_coverages, cov_thr=0.0):
-    nside = hp.npix2nside(len(single_detector_coverages[0]))
-    ndet = len(single_detector_coverages)
-    c_sum = np.zeros(len(single_detector_coverages[0]))
-    c_prod = np.ones(len(single_detector_coverages[0]))
-    for c in single_detector_coverages:
-        c[c < c.max() * cov_thr] = 0.
-        c_sum += c
-        c_prod *= c
-    c_prod = np.power(c_prod, 1./ndet)
-    c_sum /= ndet
-    overlap = c_prod.sum() / c_sum.sum()
+    c_ar_mean = np.mean(single_detector_coverages, axis=0)
+    c_g_mean = gmean(single_detector_coverages)
+    c_g_mean[np.isnan(c_g_mean)] = 0.
+    overlap = c_g_mean.sum() / c_ar_mean.sum()
     return overlap
 
 def normalized_coverage(coverage, cov_thr=0.2):
@@ -147,10 +143,10 @@ def OneDetCoverage(acq, detnum, convolution=True, verbose=False):
     acq_.instrument = acq_.instrument[detnum]
     H = acq_.get_operator()
     coverage = H.T(ones(H.shapeout))
-    coverage[coverage < 0.] = 0.
     if convolution:
         convolution = acq_.get_convolution_peak_operator()
         coverage = convolution(coverage)
+    coverage[coverage < 0.] = 0.
     return coverage
 
 def GetCoverageAndSDCoverages(acq, verbose=False):

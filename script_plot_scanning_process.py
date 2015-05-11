@@ -8,6 +8,7 @@ import pyfits as pf
 from glob import glob
 #from matplotlib import cm
 import os
+from itertools import product
 from pyoperators import MPI
 
 rank = MPI.COMM_WORLD.rank
@@ -19,21 +20,41 @@ deccenter = -46.0
 
 scale = 1e-7
 
-angspeeds = np.arange(0., scale, 0.1/2.9*scale) # np.arange(0.1, 3., 0.1)
-delta_azs = np.arange(0., scale, 1./30.*scale) # np.arange(20, 50, 1)
+angspeeds = np.arange(0., scale, 0.05/2.9*scale) # np.arange(0.1, 3., 0.1)
+delta_azs = np.arange(0., scale, 0.5/30.*scale) # np.arange(20, 50, 1)
 criteria = np.empty((len(angspeeds), len(delta_azs)))
+omegas = np.empty((len(angspeeds), len(delta_azs)))
+etas = np.empty((len(angspeeds), len(delta_azs)))
+lambdas = np.empty((len(angspeeds), len(delta_azs)))
 
-file_name = 'criteria_on_angspeed_delta_az_plane_debug_mpi{}.fits'.format(size)
-if len(glob(file_name)) == 0:
-    for i, angspeed in enumerate(angspeeds):
+file_name = '_on_angspeed_delta_az_plane_debug_mpi{}.fits'.format(size)
+if len(glob('*' + file_name)) == 0:
+    for i, angspeed in enumerate(angspeed):
         for j, delta_az in enumerate(delta_azs):
             point = np.array([angspeed, delta_az])
-            criteria[i, j] = criterium(point)
+            print 'Point -', point
+            o, e, l = oel(point, ndet_for_omega_and_eta=10)
+            omegas[i, j] = o
+            etas[i, j] = e
+            lambdas[i, j] = l
+            criteria[i, j] = e / o / l
     hdu = pf.PrimaryHDU(criteria)
-    if rank == 0: hdu.writeto(file_name)
+    if rank == 0: hdu.writeto('criteria' + file_name)
+    hdu = pf.PrimaryHDU(o)
+    if rank == 0: hdu.writeto('omegas' + file_name)
+    hdu = pf.PrimaryHDU(e)
+    if rank == 0: hdu.writeto('etas' + file_name)
+    hdu = pf.PrimaryHDU(l)
+    if rank == 0: hdu.writeto('lambdas' + file_name)
 else:
-    hdulist = pf.open(file_name)
+    hdulist = pf.open('criteria' + file_name)
     criteria = hdulist[0].data
+    hdulist = pf.open('omegas' + file_name)
+    o = hdulist[0].data
+    hdulist = pf.open('etas' + file_name)
+    e = hdulist[0].data
+    hdulist = pf.open('lambdas' + file_name)
+    l = hdulist[0].data
 angspeeds = angspeeds / scale * 2.9 + 0.1
 delta_azs = delta_azs / scale * 30. + 20.
     
@@ -71,7 +92,7 @@ if len(glob(file_name)) == 0:
 if rank == 0:
     with open(file_name, 'r') as f:
         lines = f.readlines()
-    a = np.array(lines[::2]).astype(float)
+    a = np.array(lines[0::2]).astype(float)
     d = np.array(lines[1::2]).astype(float)
 
     ## # ploting
