@@ -27,12 +27,18 @@ omegas = np.empty((len(angspeeds), len(delta_azs)))
 etas = np.empty((len(angspeeds), len(delta_azs)))
 lambdas = np.empty((len(angspeeds), len(delta_azs)))
 
+npoints = len(angspeeds) * len(delta_azs)
+
 file_name = '_on_angspeed_delta_az_plane.fits'
 if len(glob('*' + file_name)) == 0:
+    ip = 0
     for i, angspeed in enumerate(angspeeds):
         for j, delta_az in enumerate(delta_azs):
             point = np.array([angspeed, delta_az])
-            if rank == 0: print 'Point -', point
+            if rank == 0: 
+                print 'Point {}/{}'.format(ip, npoints)
+#                print 'Point -', point
+                ip += 1
             o, e, l = oel(point, ndet_for_omega_and_eta=10)
             omegas[i, j] = o
             etas[i, j] = e
@@ -50,11 +56,11 @@ else:
     hdulist = pf.open('criteria' + file_name)
     criteria = hdulist[0].data
     hdulist = pf.open('omegas' + file_name)
-    o = hdulist[0].data
+    omegas = hdulist[0].data
     hdulist = pf.open('etas' + file_name)
-    e = hdulist[0].data
+    etas = hdulist[0].data
     hdulist = pf.open('lambdas' + file_name)
-    l = hdulist[0].data
+    lambdas = hdulist[0].data
 angspeeds = angspeeds / scale * 2.9 + 0.1
 delta_azs = delta_azs / scale * 30. + 20.
     

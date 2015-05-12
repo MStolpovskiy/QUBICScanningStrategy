@@ -26,7 +26,7 @@ class color:
 def oel(point,
         nside=256,
         verbose=False,
-        ndet_for_omega_and_eta=50,
+        ndet_for_omega_and_eta=10,
         ndet_for_lambda=10,
         debug=False
         ):
@@ -108,7 +108,7 @@ def oel(point,
         print 'eta = {}'.format(e)
         print 'lambda = {}'.format(l)
 
-    if debug:
+    if rank == 0: #debug:
         with open('oel.log', 'a') as f:
             f.write('{}\n'.format(point_descaled[0]))
             f.write('{}\n'.format(point_descaled[1]))
@@ -150,48 +150,23 @@ def OneDetCoverage(acq, detnum, convolution=True, verbose=False):
     return coverage
 
 def GetCoverageAndSDCoverages(acq, verbose=False):
-    rank = MPI.COMM_WORLD.rank
-    size = MPI.COMM_WORLD.size
-    if verbose:
-        print 'I am = {}/{}'.format(rank, size)
-    do_parallel = False
-    if size >= len(acq.instrument): do_parallel = True
     coverage = np.zeros(hp.nside2npix(acq.scene.nside))
     single_detector_coverages = []
     for detnum in xrange(len(acq.instrument)):
-        if do_parallel and rank == detnum:
-            odc = OneDetCoverage(acq, detnum, verbose=verbose)
-            coverage += odc
-            single_detector_coverages.append(odc)
-        if not do_parallel:
-            odc = OneDetCoverage(acq, detnum, verbose=verbose)
-            coverage += odc
-            single_detector_coverages.append(odc)
+       odc = OneDetCoverage(acq, detnum, verbose=verbose)
+       coverage += odc
+       single_detector_coverages.append(odc)
     return coverage, single_detector_coverages
 
 def GetSDCoverages(acq, ndet=None, verbose=False):
     single_detector_coverages = []
-    rank = MPI.COMM_WORLD.rank
-    size = MPI.COMM_WORLD.size
-    if verbose:
-        print 'I am = {}/{}'.format(rank, size)
-    do_parallel = False
-    if size >= ndet and ndet != None: do_parallel = True
-    if ndet == None:
-        for idet in xrange(len(acq.instrument)):
-            if do_parallel and rank == idet:
-                odc = OneDetCoverage(acq, idet, verbose=verbose)
-            if not do_parallel:
-                odc = OneDetCoverage(acq, idet, verbose=verbose)
-            single_detector_coverages.append(odc)
-        return single_detector_coverages
     all_det = np.arange(len(acq.instrument))
-    np.random.shuffle(all_det)
+    if ndet == None:
+        ndet = len(acq.instrument)
+    else: 
+        np.random.shuffle(all_det)
     for idet in all_det[:ndet]:
-        if do_parallel and rank == idet:
-            odc = OneDetCoverage(acq, idet, verbose=verbose)
-        if not do_parallel:
-            odc = OneDetCoverage(acq, idet, verbose=verbose)
+        odc = OneDetCoverage(acq, idet, verbose=verbose)
         single_detector_coverages.append(odc)
     return single_detector_coverages
 
@@ -205,7 +180,7 @@ def GetCoverage(acq):
 #    return omega * overlap / eta
 
 def criterium(point):
-    o, e, l = oel(point, verbose=True, debug=True)
+    o, e, l = oel(point, verbose=False, debug=False)
 #    o, e = oel(point, verbose=True, ndet_for_omega_and_eta=1, ndet_for_lambda=1)
     c = e / o / l
     print color.BOLD + 'criterium =', c, color.END
