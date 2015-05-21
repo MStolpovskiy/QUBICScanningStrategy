@@ -1,11 +1,11 @@
 from __future__ import division
 
-from myqubic import (create_sweeping_pointings,
-                     mask_pointing)
+from myqubic import create_sweeping_pointings
 from qubic import (QubicAcquisition,
                    PlanckAcquisition,
                    QubicPlanckAcquisition)
 from qubic.io import write_map
+import gc
 import healpy as hp
 import numpy as np
 from pyoperators import MPI, pcg
@@ -13,6 +13,9 @@ import ConfigParser
 import json
 from itertools import product
 import os
+
+debug_mode = True
+maxiter = 300
 
 config = ConfigParser.RawConfigParser()
 config.read('angspeed-delta_az.cfg')
@@ -39,9 +42,18 @@ nrealizations = config.getint('Analysis', 'nrealizations')
 rank = MPI.COMM_WORLD.rank
 size = MPI.COMM_WORLD.size
 
+print 'I am {} of {}'.format(rank, size)
+MPI.COMM_WORLD.Barrier()
+
+duration_effective = nep_normalization / 3600  # in hours
+duration_actual = 24                           # in hours
+nep_normalization = np.sqrt(duration_effective / duration_actual)
+detector_nep = nep / nep_normalization
+
 if rank == 0:
     path = './'
     directory = path + 'angspeed-delta_az_scan/'
+    if debug_mode: directory += 'debug_mode/'
     directory += 'const_el_time{}_angspeed_psi{}_dead_time{}_fknee{}_nside{}'.format(time_on_const_elevation,
                                                                                      angspeed_psi,
                                                                                      dead_time,
@@ -51,46 +63,55 @@ if rank == 0:
         os.makedirs(directory)
 
 for (angspeed, delta_az) in product(angspeed_ar, delta_az_ar):
-    if rank == 0: print 'Angspeed, delta_az =', angspeed, delta_az
-    coverage = np.zeros(hp.nside2npix(nside))
+    print 'Angspeed, delta_az = {}, {} (rank={})'.format(angspeed, delta_az, rank)
+    nsw = int(time_on_const_elevation / (delta_az / angspeed))
+    pointings = create_sweeping_pointings(duration=duration_actual,
+                                          sampling_period=sampling_period,
+                                          angspeed=angspeed,
+                                          delta_az=delta_az,
+                                          nsweeps_per_elevation=nsw,
+                                          ss_psi='sss',
+                                          angspeed_psi=angspeed_psi,
+                                          maxpsi=maxpsi,
+                                          hwp_div=hwp_div,
+                                          dead_time=dead_time
+                                         )
+
+    band = 150
+    acq_qubic = QubicAcquisition(band, pointings,
+                                 kind='IQU',
+                                 nside=nside,
+                                 detector_nep=detector_nep,
+                                 detector_fknee=fknee
+                                )
+    ndet = 992 if not debug_mode else 2
+    acq_qubic = acq_qubic[:ndet]
+    ## acq_qubic.comm = acq_qubic.comm.Dup()
+    ## acq_qubic.sampling.__dict__['comm'] = acq_qubic.sampling.comm.Dup()
+    ## acq_qubic.scene.__dict__['comm'] = acq_qubic.scene.comm.Dup()
+    ## acq_qubic.instrument.detector.__dict__['comm'] = acq_qubic.instrument.detector.comm.Dup()
+    coverage = acq_qubic.get_coverage()
+    if rank == 0:
+        file_name = 'coverage_angspeed{}_delta_az{}.fits'.format(angspeed, delta_az)
+        with open(directory + '/cov_map_' + file_name, 'w') as f:
+            write_map(f, coverage)
+
+    input_map = np.zeros((hp.nside2npix(nside), 3))
+    acq_planck = PlanckAcquisition(band, acq_qubic.scene, true_sky=input_map)
+    acq_fusion = QubicPlanckAcquisition(acq_qubic, acq_planck)
+
+    obs_noiseless = acq_fusion.get_observation(noiseless=True)
+    H = acq_fusion.get_operator()
+    invntt = acq_fusion.get_invntt_operator()
+    A = H.T * invntt * H
+
     for realization in xrange(nrealizations):
-        if rank == 0: print 'realization', realization
-        nsw = int(time_on_const_elevation / (delta_az / angspeed))
-        pointings = create_sweeping_pointings(sampling_period=sampling_period,
-                                              angspeed=angspeed,
-                                              delta_az=delta_az,
-                                              nsweeps_per_elevation=nsw,
-                                              angspeed_psi=angspeed_psi,
-                                              maxpsi=maxpsi,
-                                              hwp_div=hwp_div
-                                             )
-        nep_normalization = np.sqrt(nep_normalization / (len(pointings)*pointings.period))
-        pointings = pointings[mask_pointing(pointings, dead_time=dead_time)]
-        
-        band = 150
-        detector_nep = nep / nep_normalization
-        acq_qubic = QubicAcquisition(band, pointings,
-                                     kind='IQU',
-                                     nside=nside,
-                                     detector_nep=detector_nep
-                                    )
-        acq_qubic = acq_qubic[:992]
-        if realization == 0:
-            coverage = acq_qubic.get_coverage()
+        print 'rank={}: realization {} / {}'.format(rank, realization + 1, nrealizations)
 
-        input_map = np.zeros((hp.nside2npix(nside), 3))
-        acq_planck = PlanckAcquisition(band, acq_qubic.scene, true_sky=input_map)
-        acq_fusion = QubicPlanckAcquisition(acq_qubic, acq_planck)
-
-        obs = acq_fusion.get_observation()
-        H = acq_fusion.get_operator()
-        invntt = acq_fusion.get_invntt_operator()
-
-        A = H.T * invntt * H
+        obs = obs_noiseless + acq_fusion.get_noise()
         b = H.T * invntt * obs
 
-        solution = pcg(A, b, disp=True)
-
+        solution = pcg(A, b, disp=True, maxiter=maxiter)
         rec_map = solution['x']
 
         if rank == 0:
@@ -99,10 +120,10 @@ for (angspeed, delta_az) in product(angspeed_ar, delta_az_ar):
                                                                           realization)
             with open(directory + '/rec_map_' + file_name, 'w') as f:
                 write_map(f, rec_map, mask=coverage>0.)
-            
-    if rank == 0:
-        file_name = 'angspeed{}_delta_az{}.fits'.format(angspeed,
-                                                        delta_az,
-                                                        realization)
-        with open(directory + '/cov_map_' + file_name, 'w') as f:
-            write_map(f, coverage)
+
+    # release the pointing matrix
+    del H, A
+    gc.collect()
+    print rank, 'got here'
+
+print('finished')
