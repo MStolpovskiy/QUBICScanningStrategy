@@ -2,9 +2,11 @@
 
 config_file_name = 'angspeed-delta_az.cfg'
 
+debug = True
+
 # scan on angspeed from 0.1 to 3. with step 0.1
-angspeed = [0.2, 0.6, 1.0, 1.4, 1.8, 2.2, 2.6, 3.0]
-delta_az = [20., 23., 26., 29., 32., 35., 38., 41., 44., 47., 50.]
+angspeed = [0.2, 0.6, 1.0, 1.4, 1.8, 2.2, 2.6, 3.0] if not debug else [1.0, 2.0]
+delta_az = [20., 23., 26., 29., 32., 35., 38., 41., 44., 47., 50.] if not debug else [30., 40.]
 
 # don't scan on other ss parameters
 time_on_const_elevation = 120 # min
@@ -13,13 +15,13 @@ maxpsi = 0.
 hwp_div = 8 # positions between 0 and 90 degrees
 dead_time = 5
 
-sampling_period = 0.05
+sampling_period = 0.05 if not debug else 1.
 nep = 4.7e-17
 nep_normalization = '1year'
 fknee = 1 # Hz
 
 nside = 256
-nrealizations = 10
+nrealizations = 10 if not debug else 2
 
 ################### write config file
 

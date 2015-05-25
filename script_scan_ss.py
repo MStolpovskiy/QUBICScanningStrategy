@@ -13,8 +13,12 @@ import ConfigParser
 import json
 from itertools import product
 import os
+from optparse import OptionParser
 
-debug_mode = True
+parser = OptionParser()
+parser.add_option("-d", "--debug", dest="debug", action='store_true', default=False, help='Run in debug mode')
+(options, args) = parser.parse_args()
+debug_mode = options.debug
 maxiter = 300
 
 config = ConfigParser.RawConfigParser()
